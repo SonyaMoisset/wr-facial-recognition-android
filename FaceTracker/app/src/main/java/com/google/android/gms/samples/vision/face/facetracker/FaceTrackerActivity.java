@@ -31,6 +31,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -42,8 +43,12 @@ import com.google.android.gms.vision.MultiProcessor;
 import com.google.android.gms.vision.Tracker;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
+import com.google.android.gms.vision.face.Landmark;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Activity for the face tracker app.  This app detects faces with the rear facing camera, and draws
@@ -60,6 +65,11 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     private static final int RC_HANDLE_GMS = 9001;
     // permission request codes need to be < 256
     private static final int RC_HANDLE_CAMERA_PERM = 2;
+    private TextView mText;
+    private Toast toast;
+    private boolean loading;
+    private Runnable goToWelcomeRunnable;
+    private Handler handler;
 
     //==============================================================================================
     // Activity Methods
@@ -73,9 +83,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         super.onCreate(icicle);
         setContentView(R.layout.main);
 
+        mText = (TextView) findViewById(R.id.text);
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
         mGraphicOverlay = (GraphicOverlay) findViewById(R.id.faceOverlay);
-
         // Check for the camera permission before accessing the camera.  If the
         // permission is not granted yet, request permission.
         int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
@@ -130,6 +140,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setClassificationType(FaceDetector.ALL_CLASSIFICATIONS)
                 .build();
 
+
         detector.setProcessor(
                 new MultiProcessor.Builder<>(new GraphicFaceTrackerFactory())
                         .build());
@@ -183,6 +194,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             mCameraSource.release();
         }
     }
+
+    private final Object mLock = new Object();
 
     /**
      * Callback for the result from requesting permissions. This method
@@ -277,6 +290,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         }
     }
 
+    private Set<GraphicOverlay.Graphic> mGraphics = new HashSet<>();
+
     /**
      * Face tracker for each detected individual. This maintains a face graphic within the app's
      * associated face overlay.
@@ -288,6 +303,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         GraphicFaceTracker(GraphicOverlay overlay) {
             mOverlay = overlay;
             mFaceGraphic = new FaceGraphic(overlay);
+
         }
 
         /**
@@ -296,13 +312,27 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         @Override
         public void onNewItem(int faceId, Face item) {
             mFaceGraphic.setId(faceId);
-            
+//            faceCount++;
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(FaceTrackerActivity.this, "Face Detected!" , Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(FaceTrackerActivity.this, WelcomePageActivity.class);
-                    startActivity(intent);
+
+                    if (toast != null) {
+                        toast.cancel();
+                    }
+
+                    if (mGraphics.size() > 1) {
+                        toast = Toast.makeText(FaceTrackerActivity.this, "Too many faces detected.", Toast.LENGTH_SHORT);
+                        toast.show();
+                        if (handler != null && goToWelcomeRunnable != null) {
+                            handler.removeCallbacks(goToWelcomeRunnable);
+                        }
+                    } else {
+                        toast = Toast.makeText(FaceTrackerActivity.this, "Face detected. Authenticating...", Toast.LENGTH_SHORT);
+                        toast.show();
+                        goToWelcome();
+
+                    }
                 }
             });
         }
@@ -311,9 +341,40 @@ public final class FaceTrackerActivity extends AppCompatActivity {
          * Update the position/characteristics of the face within the overlay.
          */
         @Override
-        public void onUpdate(FaceDetector.Detections<Face> detectionResults, Face face) {
+        public void onUpdate(FaceDetector.Detections<Face> detectionResults, final Face face) {
+            synchronized (mLock) {
+                mGraphics.add(mFaceGraphic);
+            }
             mOverlay.add(mFaceGraphic);
             mFaceGraphic.updateFace(face);
+
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    mText.setText("Face count: " + mGraphics.size());
+                }
+            });
+//            new Handler(Looper.getMainLooper()).post(new Runnable() {
+//                @Override
+//                public void run() {
+//
+//
+//
+//                    List<Landmark> landmarks = face.getLandmarks();
+//                    Landmark leftEye = getLandmark(Landmark.LEFT_EYE, landmarks);
+//                    Landmark rightEye = getLandmark(Landmark.RIGHT_EYE, landmarks);
+//
+//                    if (leftEye != null && rightEye != null) {
+//                        PointF leftEyePosition = leftEye.getPosition();
+//                        PointF rightEyePosition = rightEye.getPosition();
+//                        float x = leftEyePosition.x - rightEyePosition.x;
+//                        float y = leftEyePosition.y - rightEyePosition.y;
+//                        double distance = Math.sqrt(x * (x) + (y) * (y));
+//
+//                        double normalisedDistance = distance / face.getWidth();
+//                    }
+//                }
+//            });
         }
 
         /**
@@ -323,7 +384,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
          */
         @Override
         public void onMissing(FaceDetector.Detections<Face> detectionResults) {
-            mOverlay.remove(mFaceGraphic);
+
+
         }
 
         /**
@@ -333,6 +395,57 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         @Override
         public void onDone() {
             mOverlay.remove(mFaceGraphic);
+            synchronized (mLock) {
+                mGraphics.remove(mFaceGraphic);
+            }
+
+//            faceCount--;
+//            faceCount = Math.max(0, faceCount);
+
+            if (toast != null) {
+                toast.cancel();
+            }
+
+            if (mGraphics.size() == 1) {
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        toast = Toast.makeText(FaceTrackerActivity.this, "Face detected. Authenticating...", Toast.LENGTH_SHORT);
+                        toast.show();
+                    }
+                });
+                goToWelcome();
+            } else {
+                if (handler != null && goToWelcomeRunnable != null) {
+                    handler.removeCallbacks(goToWelcomeRunnable);
+                }
+            }
         }
+    }
+
+    private void goToWelcome() {
+
+        goToWelcomeRunnable = new Runnable() {
+
+            @Override
+            public void run() {
+                Intent intent = new Intent(FaceTrackerActivity.this, WelcomePageActivity.class);
+                startActivity(intent);
+            }
+
+        };
+        handler = new Handler(Looper.getMainLooper());
+        handler.postDelayed(goToWelcomeRunnable, 4000);
+    }
+
+    public static Landmark getLandmark(int type, List<Landmark> landmarks) {
+        for (Landmark landmark : landmarks) {
+            if (landmark.getType() == type) {
+                return landmark;
+            }
+        }
+
+        return null;
+
     }
 }
