@@ -326,6 +326,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                         toast.show();
                         if (handler != null && goToWelcomeRunnable != null) {
                             handler.removeCallbacks(goToWelcomeRunnable);
+                            loading = false;
                         }
                     } else {
                         toast = Toast.makeText(FaceTrackerActivity.this, "Face detected. Authenticating...", Toast.LENGTH_SHORT);
@@ -349,27 +350,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             mFaceGraphic.updateFace(face);
 
             updateFaceCount();
-//            new Handler(Looper.getMainLooper()).post(new Runnable() {
-//                @Override
-//                public void run() {
-//
-//
-//
-//                    List<Landmark> landmarks = face.getLandmarks();
-//                    Landmark leftEye = getLandmark(Landmark.LEFT_EYE, landmarks);
-//                    Landmark rightEye = getLandmark(Landmark.RIGHT_EYE, landmarks);
-//
-//                    if (leftEye != null && rightEye != null) {
-//                        PointF leftEyePosition = leftEye.getPosition();
-//                        PointF rightEyePosition = rightEye.getPosition();
-//                        float x = leftEyePosition.x - rightEyePosition.x;
-//                        float y = leftEyePosition.y - rightEyePosition.y;
-//                        double distance = Math.sqrt(x * (x) + (y) * (y));
-//
-//                        double normalisedDistance = distance / face.getWidth();
-//                    }
-//                }
-//            });
         }
 
         /**
@@ -396,10 +376,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
             updateFaceCount();
 
-
-//            faceCount--;
-//            faceCount = Math.max(0, faceCount);
-
             if (toast != null) {
                 toast.cancel();
             }
@@ -416,6 +392,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             } else {
                 if (handler != null && goToWelcomeRunnable != null) {
                     handler.removeCallbacks(goToWelcomeRunnable);
+                    loading = false;
                 }
             }
         }
@@ -431,6 +408,12 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     }
 
     private void goToWelcome() {
+
+        if (loading) {
+            return;
+        }
+
+        loading = true;
 
         goToWelcomeRunnable = new Runnable() {
 
