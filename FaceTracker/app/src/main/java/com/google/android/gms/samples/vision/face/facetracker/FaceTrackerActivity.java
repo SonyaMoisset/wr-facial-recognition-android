@@ -348,12 +348,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             mOverlay.add(mFaceGraphic);
             mFaceGraphic.updateFace(face);
 
-            new Handler(Looper.getMainLooper()).post(new Runnable() {
-                @Override
-                public void run() {
-                    mText.setText("Face count: " + mGraphics.size());
-                }
-            });
+            updateFaceCount();
 //            new Handler(Looper.getMainLooper()).post(new Runnable() {
 //                @Override
 //                public void run() {
@@ -399,6 +394,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 mGraphics.remove(mFaceGraphic);
             }
 
+            updateFaceCount();
+
+
 //            faceCount--;
 //            faceCount = Math.max(0, faceCount);
 
@@ -421,6 +419,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    private void updateFaceCount() {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                mText.setText("Face count: " + mGraphics.size());
+            }
+        });
     }
 
     private void goToWelcome() {
