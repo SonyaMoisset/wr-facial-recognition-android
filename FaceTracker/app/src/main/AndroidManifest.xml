@@ -42,7 +42,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.google.android.gms.samples.vision.face.facetracker..WelcomePageActivity"
+            android:name="com.google.android.gms.samples.vision.face.facetracker.WelcomePageActivity"
             android:theme="@style/Theme.AppCompat.NoActionBar"/>
     </application>
 
