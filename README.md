@@ -1,1 +1,1 @@
-# wr-facial-recognition-android
+# Facial Recognition Android
